@@ -6,7 +6,13 @@ namespace MPSIP.Application.Services;
 
 public class ProjectService(IProjectRepository repo)
 {
-    public async Task<int> CreateAsync(CreateProjectCommand cmd) => await repo.CreateAsync(cmd);
+    public async Task<int> CreateAsync(CreateProjectCommand cmd)
+    {
+        int projectId = await repo.CreateAsync(cmd);
+        if (cmd.TemplateId.HasValue)
+            await repo.ApplyTemplateAsync(projectId, cmd.TemplateId.Value, cmd.OwnerId);
+        return projectId;
+    }
 
     public async Task<Project?> GetByIdAsync(int id) => await repo.GetByIdAsync(id);
 

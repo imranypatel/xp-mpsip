@@ -15,6 +15,7 @@ public class Partner
     // Navigation helpers
     public string? DisplayName { get; set; }
     public string? Email { get; set; }
+    public string? ProjectName { get; set; }
     public List<string> Roles { get; set; } = [];
     public bool HasAcknowledged { get; set; }
 }

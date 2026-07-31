@@ -40,7 +40,7 @@ public class DashboardService(IProjectRepository projectRepo, IPartnerRepository
                 .Sum(c => c.MonetaryValue ?? 0);
 
             projectDtos.Add(new PartnerProjectDto(
-                p.ProjectId, "", p.StatusCode, p.StakePct,
+                p.ProjectId, p.ProjectName ?? "", p.StatusCode, p.StakePct,
                 myContrib, 0, [.. p.Roles]));
         }
 
