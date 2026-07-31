@@ -1,0 +1,67 @@
+@page "/projects/{ProjectId:int}/partners/{PartnerId:int}/agreement"
+@attribute [Authorize]
+@inject PartnerService PartnerSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Partner Agreement — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Partner Agreement</MudText>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (_agreement is null)
+{
+    <MudAlert Severity="Severity.Error">Agreement not found.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-6" Elevation="2" Style="max-width:680px">
+        <MudText Typo="Typo.h6" Class="mb-3">Agreement Terms</MudText>
+        <MudStack Class="mb-4" Spacing="2">
+            <div><MudText Typo="Typo.overline">Contribution Terms</MudText>
+                 <MudText>@(_agreement.ContributionTerms ?? "—")</MudText></div>
+            <div><MudText Typo="Typo.overline">Incentive Terms</MudText>
+                 <MudText>@(_agreement.IncentiveTerms ?? "—")</MudText></div>
+            <div><MudText Typo="Typo.overline">Risk Acceptance</MudText>
+                 <MudText>@(_agreement.RiskAcceptance ?? "—")</MudText></div>
+        </MudStack>
+        @if (!_agreement.AcknowledgedAt.HasValue)
+        {
+            <MudCheckBox @bind-Value="_checked" Label="I have read and agree to the above terms." Class="mb-4" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="!_checked || _saving"
+                       OnClick="HandleAck">
+                @(_saving ? "Saving…" : "Acknowledge Agreement")
+            </MudButton>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Success">You acknowledged this agreement on @_agreement.AcknowledgedAt?.ToString("d").</MudAlert>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    [Parameter] public int PartnerId { get; set; }
+    MPSIP.Domain.Entities.PartnerAgreement? _agreement;
+    MPSIP.Domain.Entities.Partner? _partner;
+    bool _loading = true, _checked, _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var partners = await PartnerSvc.GetByProjectAsync(ProjectId);
+        _partner = partners.FirstOrDefault(p => p.Id == PartnerId);
+        _agreement = await PartnerSvc.GetAgreementAsync(ProjectId, PartnerId);
+        _loading = false;
+    }
+
+    async Task HandleAck()
+    {
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        await PartnerSvc.AcknowledgeAgreementAsync(new AcknowledgeAgreementCommand(PartnerId, "Acknowledged", userId));
+        Snackbar.Add("Agreement acknowledged.", Severity.Success);
+        Nav.NavigateTo($"/projects/{ProjectId}/partners");
+    }
+}

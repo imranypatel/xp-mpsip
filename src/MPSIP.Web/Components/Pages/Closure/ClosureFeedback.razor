@@ -1,0 +1,68 @@
+@page "/projects/{ProjectId:int}/close/feedback"
+@attribute [Authorize]
+@inject ClosureService ClosureSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Closure Feedback — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Submit Closure Feedback</MudText>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (_closureId == 0)
+{
+    <MudAlert Severity="Severity.Warning">No active closure found for this project.</MudAlert>
+}
+else
+{
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:560px">
+    <EditForm Model="_model" OnValidSubmit="HandleFeedback">
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Overall Rating</MudText>
+        <MudRating @bind-SelectedValue="_model.Rating" MaxValue="5" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Comments" Label="Comments" Variant="Variant.Outlined"
+                      Lines="4" Class="mb-4" />
+        <MudCheckBox @bind-Value="_ackChecked" Label="I acknowledge the final closure summary." Class="mb-4" />
+        <MudStack Row="true">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="!_ackChecked || _saving">
+                @(_saving ? "Submitting…" : "Submit Feedback")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Href="@($"/projects/{ProjectId}")">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    readonly FeedbackModel _model = new();
+    int _closureId;
+    int _partnerId;
+    bool _saving, _loading = true, _ackChecked;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var closure = await ClosureSvc.GetByProjectAsync(ProjectId);
+        _closureId = closure?.Id ?? 0;
+        _loading = false;
+    }
+
+    async Task HandleFeedback()
+    {
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var cmd = new SubmitFeedbackCommand(_closureId, userId, (byte?)_model.Rating, _model.Comments);
+        await ClosureSvc.SubmitFeedbackAsync(cmd);
+        Snackbar.Add("Feedback submitted.", Severity.Success);
+        Nav.NavigateTo($"/projects/{ProjectId}");
+    }
+
+    class FeedbackModel
+    {
+        public int Rating { get; set; } = 5;
+        public string? Comments { get; set; }
+    }
+}

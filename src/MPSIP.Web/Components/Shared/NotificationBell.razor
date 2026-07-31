@@ -1,0 +1,72 @@
+@using MPSIP.Application.Services
+@inject INotificationService NotificationSvc
+@inject AuthenticationStateProvider AuthState
+
+<MudMenu Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
+         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+    <ActivatorContent>
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit">
+            @if (_unreadCount > 0)
+            {
+                <MudBadge Content="@_unreadCount" Color="Color.Secondary" Overlap="true" />
+            }
+        </MudIconButton>
+    </ActivatorContent>
+    <ChildContent>
+        <div style="width:320px;max-height:400px;overflow-y:auto;">
+            <MudText Typo="Typo.subtitle2" Class="px-4 pt-2 pb-1">Notifications</MudText>
+            <MudDivider />
+            @if (!_notifications.Any())
+            {
+                <MudText Class="pa-4" Color="Color.Secondary">No notifications</MudText>
+            }
+            else
+            {
+                @foreach (var n in _notifications.Take(10))
+                {
+                    <MudMenuItem OnClick="() => MarkRead(n.Id)"
+                                 Style="@(n.IsRead ? "" : "background:#f0f4ff")">
+                        <MudText Typo="Typo.body2"><strong>@n.Title</strong></MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@n.Body</MudText>
+                    </MudMenuItem>
+                }
+                <MudDivider />
+                <MudMenuItem OnClick="MarkAllRead">
+                    <MudText Typo="Typo.body2" Color="Color.Primary">Mark all as read</MudText>
+                </MudMenuItem>
+            }
+        </div>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    private List<MPSIP.Domain.Entities.Notification> _notifications = [];
+    private int _unreadCount;
+    private int _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var idClaim = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (idClaim != null && int.TryParse(idClaim.Value, out _userId))
+        {
+            _notifications = (await NotificationSvc.GetForUserAsync(_userId)).ToList();
+            _unreadCount = await NotificationSvc.GetUnreadCountAsync(_userId);
+        }
+    }
+
+    private async Task MarkRead(int id)
+    {
+        await NotificationSvc.MarkReadAsync(id);
+        _unreadCount = Math.Max(0, _unreadCount - 1);
+        var n = _notifications.FirstOrDefault(x => x.Id == id);
+        if (n != null) n.IsRead = true;
+    }
+
+    private async Task MarkAllRead()
+    {
+        await NotificationSvc.MarkAllReadAsync(_userId);
+        _unreadCount = 0;
+        foreach (var n in _notifications) n.IsRead = true;
+    }
+}

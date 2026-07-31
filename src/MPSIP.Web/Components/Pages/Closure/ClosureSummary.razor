@@ -1,0 +1,82 @@
+@page "/projects/{ProjectId:int}/closure-summary"
+@attribute [Authorize]
+@inject ClosureService ClosureSvc
+@inject AuthenticationStateProvider AuthState
+@inject ISnackbar Snackbar
+
+<PageTitle>Closure Summary — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Project Closure Summary</MudText>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (_closure is null)
+{
+    <MudAlert Severity="Severity.Info">This project has not been closed yet.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2">
+                <MudCardContent>
+                    <MudText Typo="Typo.overline">Status</MudText>
+                                    <MudChip T="string" Color="Color.Success">@(_closure.CompletedAt.HasValue ? "Closed" : "Closing")</MudChip>
+                    <MudText Typo="Typo.overline" Class="mt-2">Closure Notes</MudText>
+                    <MudText>@(_closure.ClosureNotes ?? "—")</MudText>
+                    <MudText Typo="Typo.overline" Class="mt-2">Initiated At</MudText>
+                        <MudText>@_closure.InitiatedAt.ToString("d")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        @if (_closure.Feedback.Any())
+        {
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">Partner Feedback</MudText>
+                @foreach (var fb in _closure.Feedback)
+                {
+                    <MudCard Class="mb-2" Elevation="1">
+                        <MudCardContent>
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudRating ReadOnly="true" SelectedValue="@((int)(fb.Rating ?? 0))" MaxValue="5" />
+                                <MudText Typo="Typo.body2">@(fb.PartnerName ?? $"Partner #{fb.PartnerId}")</MudText>
+                            </MudStack>
+                            @if (!string.IsNullOrWhiteSpace(fb.Comments))
+                            { <MudText Typo="Typo.body2" Class="mt-1">@fb.Comments</MudText> }
+                        </MudCardContent>
+                    </MudCard>
+                }
+            </MudItem>
+        }
+        @if (!_closure.CompletedAt.HasValue && _isOwner)
+        {
+            <MudItem xs="12">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="CompleteClosure">
+                    Complete Closure
+                </MudButton>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    MPSIP.Domain.Entities.ProjectClosure? _closure;
+    bool _loading = true, _isOwner;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        _closure = await ClosureSvc.GetByProjectAsync(ProjectId);
+        _isOwner = _closure?.InitiatedBy == userId;
+        _loading = false;
+    }
+
+    async Task CompleteClosure()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        await ClosureSvc.CompleteAsync(_closure!.Id, userId);
+        Snackbar.Add("Project closed.", Severity.Success);
+        if (_closure != null) _closure.CompletedAt = DateTime.UtcNow;
+    }
+}

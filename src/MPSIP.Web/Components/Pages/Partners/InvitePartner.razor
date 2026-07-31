@@ -1,0 +1,70 @@
+@page "/projects/{ProjectId:int}/partners/invite"
+@attribute [Authorize]
+@inject PartnerService PartnerSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Invite Partner — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Invite Partner</MudText>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:600px">
+    <EditForm Model="_model" OnValidSubmit="HandleInvite">
+        <MudTextField @bind-Value="_model.Email" Label="Partner Email" InputType="InputType.Email"
+                      Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Roles</MudText>
+        <MudGrid Class="mb-3">
+            @foreach (var role in _allRoles)
+            {
+                <MudItem xs="6">
+                    <MudCheckBox T="bool" Label="@role" Value="_selectedRoles.Contains(role)"
+                                 ValueChanged="v => ToggleRole(role, v)" />
+                </MudItem>
+            }
+        </MudGrid>
+        <MudNumericField @bind-Value="_model.StakePct" Label="Stake %" Min="0" Max="100"
+                         Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.ContributionTerms" Label="Contribution Terms"
+                      Variant="Variant.Outlined" Lines="2" Class="mb-3" />
+        <MudTextField @bind-Value="_model.IncentiveTerms" Label="Incentive Terms"
+                      Variant="Variant.Outlined" Lines="2" Class="mb-3" />
+        <MudTextField @bind-Value="_model.RiskAcceptance" Label="Risk Acceptance Terms"
+                      Variant="Variant.Outlined" Lines="2" Class="mb-4" />
+        <MudStack Row="true">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="_saving">@(_saving ? "Sending…" : "Send Invitation")</MudButton>
+            <MudButton Variant="Variant.Text" Href="@($"/projects/{ProjectId}/partners")">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    readonly InviteModel _model = new();
+    readonly HashSet<string> _selectedRoles = [];
+    bool _saving;
+    static readonly string[] _allRoles = ["Owner","Investor","DomainExpert","Consultant","Contractor","Builder","Developer","Labour"];
+
+    void ToggleRole(string role, bool selected) { if (selected) _selectedRoles.Add(role); else _selectedRoles.Remove(role); }
+
+    async Task HandleInvite()
+    {
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int invitedBy = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var cmd = new InvitePartnerCommand(ProjectId, _model.Email, [.. _selectedRoles], _model.StakePct,
+            _model.ContributionTerms, _model.IncentiveTerms, _model.RiskAcceptance, invitedBy);
+        await PartnerSvc.InviteAsync(cmd);
+        Snackbar.Add("Invitation sent.", Severity.Success);
+        Nav.NavigateTo($"/projects/{ProjectId}/partners");
+    }
+
+    class InviteModel
+    {
+        public string Email { get; set; } = "";
+        public decimal StakePct { get; set; } = 0;
+        public string? ContributionTerms { get; set; }
+        public string? IncentiveTerms { get; set; }
+        public string? RiskAcceptance { get; set; }
+    }
+}

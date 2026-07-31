@@ -1,0 +1,65 @@
+@page "/projects/{ProjectId:int}/contributions"
+@attribute [Authorize]
+@inject ContributionService ContribSvc
+
+<PageTitle>Contributions — MPSIP</PageTitle>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h5">Contributions</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               Href="@($"/projects/{ProjectId}/contributions/log")"
+               StartIcon="@Icons.Material.Filled.Add">Log Contribution</MudButton>
+</MudStack>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (!_contributions.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.ListAlt" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2 mb-3">No contributions logged yet</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Href="@($"/projects/{ProjectId}/contributions/log")">Log First Contribution</MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudGrid Class="mb-4">
+        @foreach (var type in new[] { "Man", "Material", "Money" })
+        {
+            var total = _contributions.Where(c => c.ResourceType == type).Sum(c => c.MonetaryValue ?? c.Quantity);
+            <MudItem xs="4">
+                <MudPaper Class="pa-3" Elevation="1">
+                    <MudText Typo="Typo.overline">@type</MudText>
+                    <MudText Typo="Typo.h6">@total.ToString("0.##")</MudText>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <MudTable Items="_contributions" Hover="true" Striped="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Date</MudTh><MudTh>Contributor</MudTh><MudTh>Type</MudTh>
+            <MudTh>Description</MudTh><MudTh>Quantity</MudTh><MudTh>Value</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.ContributionDate.ToShortDateString()</MudTd>
+            <MudTd>@(context.ContributorName ?? context.ContributorId.ToString())</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small">@context.ResourceType</MudChip></MudTd>
+            <MudTd>@context.Description</MudTd>
+            <MudTd>@context.Quantity @context.Unit</MudTd>
+            <MudTd>@(context.MonetaryValue?.ToString("C") ?? "—")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    List<MPSIP.Domain.Entities.Contribution> _contributions = [];
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contributions = (await ContribSvc.ListByProjectAsync(ProjectId)).ToList();
+        _loading = false;
+    }
+}

@@ -1,0 +1,102 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject DashboardService DashSvc
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Dashboard — MPSIP</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Owner Dashboard</MudText>
+
+@if (_loading)
+{
+    <MudGrid>
+        @for (int i = 0; i < 3; i++)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="160px" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (_dashboard == null || !_dashboard.Projects.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2">No projects yet</MudText>
+        <MudText Color="Color.Secondary" Class="mb-4">Create your first Manufacturing project to get started.</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/projects/create"
+                   StartIcon="@Icons.Material.Filled.Add">New Project</MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Total Projects</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Primary">@_dashboard.TotalProjects</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Active Projects</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Success">@_dashboard.ActiveProjects</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Pending Distributions</MudText>
+                <MudText Typo="Typo.h4" Color="Color.Warning">@_dashboard.PendingDistributions.ToString("C")</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/projects/create"
+               StartIcon="@Icons.Material.Filled.Add" Class="mb-4">New Project</MudButton>
+
+    <MudGrid>
+        @foreach (var p in _dashboard.Projects)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="2">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@p.Name</MudText>
+                        <MudChip T="string" Color="@StatusColor(p.StatusCode)" Size="Size.Small" Class="mb-2">@p.StatusCode</MudChip>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@p.OpportunityKindName</MudText>
+                        <MudProgressLinear Value="@PhaseProgress(p)" Color="Color.Primary" Class="my-2" />
+                        <MudText Typo="Typo.caption">@p.CompletedPhaseCount / @p.PhaseCount phases · @p.PartnerCount partners</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Href="@($"/projects/{p.Id}")" Variant="Variant.Text" Color="Color.Primary">View</MudButton>
+                        <MudButton Href="@($"/projects/{p.Id}/tasks")" Variant="Variant.Text">Tasks</MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    OwnerDashboardDto? _dashboard;
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var idClaim = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (idClaim != null && int.TryParse(idClaim.Value, out int userId))
+            _dashboard = await DashSvc.GetOwnerDashboardAsync(userId);
+        _loading = false;
+    }
+
+    static double PhaseProgress(ProjectSummaryDto p) =>
+        p.PhaseCount == 0 ? 0 : (double)p.CompletedPhaseCount / p.PhaseCount * 100;
+
+    static Color StatusColor(string s) => s switch
+    {
+        "Active" => Color.Success,
+        "Closing" => Color.Warning,
+        "Closed" or "Archived" => Color.Default,
+        _ => Color.Info
+    };
+}

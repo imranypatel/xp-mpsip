@@ -1,0 +1,84 @@
+@page "/projects/{ProjectId:int}/tasks"
+@attribute [Authorize]
+@inject TaskService TaskSvc
+@inject AuthenticationStateProvider AuthState
+@inject ISnackbar Snackbar
+
+<PageTitle>Tasks — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Task Board</MudText>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (!_phases.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudText Typo="Typo.h6">No tasks yet. Apply the Manufacturing template when creating the project.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudExpansionPanels MultiExpansion="true">
+        @foreach (var phase in _phases)
+        {
+            <MudExpansionPanel Text="@($"{phase.Name} — {phase.StatusCode}")" IsInitiallyExpanded="true">
+                @if (!phase.Tasks.Any())
+                {
+                    <MudText Color="Color.Secondary" Class="pa-2">No tasks in this phase.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="phase.Tasks" Hover="true" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Task</MudTh><MudTh>Resource</MudTh><MudTh>Status</MudTh><MudTh>Assigned To</MudTh><MudTh>Update</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Name</MudTd>
+                            <MudTd><MudChip T="string" Size="Size.Small">@context.ResourceType</MudChip></MudTd>
+                            <MudTd><MudChip T="string" Size="Size.Small" Color="@TaskColor(context.StatusCode)">@context.StatusCode</MudChip></MudTd>
+                            <MudTd>@(context.AssignedToName ?? "—")</MudTd>
+                            <MudTd>
+                                <MudSelect T="string" Value="context.StatusCode" Dense="true" Style="width:150px"
+                                           ValueChanged="v => UpdateStatus(context.Id, v)">
+                                    @foreach (var s in new[] { "NotStarted", "InProgress", "Blocked", "Completed" })
+                                    { <MudSelectItem Value="@s">@s</MudSelectItem> }
+                                </MudSelect>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    List<MPSIP.Domain.Entities.ProjectPhase> _phases = [];
+    bool _loading = true;
+    int _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out _userId);
+        _phases = (await TaskSvc.ListByProjectAsync(ProjectId)).ToList();
+        _loading = false;
+    }
+
+    async Task UpdateStatus(int taskId, string status)
+    {
+        await TaskSvc.UpdateStatusAsync(taskId, status, _userId);
+        foreach (var phase in _phases)
+        {
+            var task = phase.Tasks.FirstOrDefault(t => t.Id == taskId);
+            if (task != null) { task.StatusCode = status; break; }
+        }
+        Snackbar.Add("Status updated.", Severity.Success);
+        StateHasChanged();
+    }
+
+    static Color TaskColor(string s) => s switch
+    {
+        "Completed" => Color.Success, "InProgress" => Color.Warning,
+        "Blocked" => Color.Error, _ => Color.Default
+    };
+}

@@ -1,0 +1,107 @@
+@page "/projects/{Id:int}"
+@attribute [Authorize]
+@inject ProjectService ProjectSvc
+
+<PageTitle>Project Detail — MPSIP</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_project == null)
+{
+    <MudAlert Severity="Severity.Error">Project not found.</MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h5">@_project.Name</MudText>
+            <MudChip T="string" Color="Color.Success" Size="Size.Small">@_project.StatusCode</MudChip>
+        </div>
+        <MudSpacer />
+        <MudButton Href="@($"/projects/{Id}/edit")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit">Edit</MudButton>
+        <MudButton Href="@($"/projects/{Id}/partners")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Group">Partners</MudButton>
+        <MudButton Href="@($"/projects/{Id}/contributions")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.AttachMoney">Contributions</MudButton>
+        <MudButton Href="@($"/projects/{Id}/tasks")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Task">Tasks</MudButton>
+        <MudButton Href="@($"/projects/{Id}/distributions")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Payments">Distributions</MudButton>
+    </MudStack>
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            @if (!string.IsNullOrEmpty(_project.Description))
+            {
+                <MudPaper Class="pa-4 mb-4" Elevation="1">
+                    <MudText Typo="Typo.subtitle2">Description</MudText>
+                    <MudText>@_project.Description</MudText>
+                </MudPaper>
+            }
+
+            <MudText Typo="Typo.h6" Class="mb-2">Phases</MudText>
+            @foreach (var phase in _phases)
+            {
+                <MudExpansionPanel Text="@phase.Name" Class="mb-1">
+                    <MudChip T="string" Size="Size.Small" Color="@PhaseColor(phase.StatusCode)">@phase.StatusCode</MudChip>
+                    @if (phase.Tasks.Any())
+                    {
+                        <MudList T="string" Dense="true">
+                            @foreach (var task in phase.Tasks)
+                            {
+                                <MudListItem Icon="@TaskIcon(task.StatusCode)">
+                                    @task.Name
+                                    <MudChip T="string" Size="Size.Small" Class="ml-2">@task.StatusCode</MudChip>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudExpansionPanel>
+            }
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.subtitle2">Timeline</MudText>
+                <MudText Typo="Typo.body2">Start: <strong>@_project.StartDate.ToShortDateString()</strong></MudText>
+                <MudText Typo="Typo.body2">Expected End: <strong>@_project.ExpectedEndDate.ToShortDateString()</strong></MudText>
+            </MudPaper>
+            @if (!string.IsNullOrEmpty(_project.RiskDeclaration))
+            {
+                <MudPaper Class="pa-4 mt-3" Elevation="1">
+                    <MudText Typo="Typo.subtitle2">Risk Declaration</MudText>
+                    <MudText Typo="Typo.body2">@_project.RiskDeclaration</MudText>
+                </MudPaper>
+            }
+            <MudPaper Class="pa-4 mt-3" Elevation="1">
+                <MudButton FullWidth="true" Variant="Variant.Outlined" Color="Color.Error"
+                           Href="@($"/projects/{Id}/close")" StartIcon="@Icons.Material.Filled.Archive">
+                    Initiate Closure
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    MPSIP.Domain.Entities.Project? _project;
+    List<MPSIP.Domain.Entities.ProjectPhase> _phases = [];
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _project = await ProjectSvc.GetByIdAsync(Id);
+        _phases = (await ProjectSvc.GetPhasesAsync(Id)).ToList();
+        _loading = false;
+    }
+
+    static Color PhaseColor(string s) => s switch
+    {
+        "Completed" => Color.Success, "InProgress" => Color.Warning, _ => Color.Default
+    };
+    static string TaskIcon(string s) => s switch
+    {
+        "Completed" => Icons.Material.Filled.CheckCircle,
+        "InProgress" => Icons.Material.Filled.Pending,
+        "Blocked" => Icons.Material.Filled.Block,
+        _ => Icons.Material.Filled.RadioButtonUnchecked
+    };
+}

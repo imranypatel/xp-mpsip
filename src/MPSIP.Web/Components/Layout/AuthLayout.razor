@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height:100vh;">
+    <MudCard Elevation="4" Style="width:100%;max-width:440px;">
+        <MudCardContent>
+            <MudText Typo="Typo.h5" Align="Align.Center" Color="Color.Primary" Class="mb-4">
+                <strong>MPSIP</strong>
+            </MudText>
+            @Body
+        </MudCardContent>
+    </MudCard>
+</MudContainer>

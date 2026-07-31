@@ -1,0 +1,50 @@
+@page "/projects/{ProjectId:int}/distributions/declare"
+@attribute [Authorize]
+@inject DistributionService DistSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Declare Distribution — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Declare Distribution</MudText>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:560px">
+    <EditForm Model="_model" OnValidSubmit="HandleDeclare">
+        <MudTextField @bind-Value="_model.Name" Label="Distribution Name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        <MudNumericField @bind-Value="_model.TotalAmount" Label="Total Amount" Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        <MudDatePicker @bind-Date="_date" Label="Distribution Date" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="2" Class="mb-4" />
+        <MudStack Row="true">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_saving">
+                @(_saving ? "Declaring…" : "Declare Distribution")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Href="@($"/projects/{ProjectId}/distributions")">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    readonly DistModel _model = new();
+    DateTime? _date = DateTime.Today;
+    bool _saving;
+
+    async Task HandleDeclare()
+    {
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var cmd = new CreateDistributionCommand(ProjectId, _model.Name, _model.TotalAmount,
+            DateOnly.FromDateTime(_date ?? DateTime.Today), _model.Notes, userId);
+        int id = await DistSvc.CreateEventAsync(cmd);
+        Snackbar.Add("Distribution declared. Shares calculated.", Severity.Success);
+        Nav.NavigateTo($"/projects/{ProjectId}/distributions");
+    }
+
+    class DistModel
+    {
+        public string Name { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+        public string? Notes { get; set; }
+    }
+}

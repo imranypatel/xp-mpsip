@@ -1,0 +1,87 @@
+@page "/accept-invitation"
+@layout AuthLayout
+@inject AuthService AuthSvc
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpCtx
+@inject ISnackbar Snackbar
+
+<PageTitle>Accept Invitation — MPSIP</PageTitle>
+
+@if (_checking)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (!_tokenValid)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">
+        This invitation link is invalid or has expired. Please contact the project owner for a new invitation.
+    </MudAlert>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="HandleAccept">
+        <DataAnnotationsValidator />
+        <MudText Typo="Typo.h6" Class="mb-1">Join @_projectName</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            You've been invited to join this project on MPSIP.
+        </MudText>
+        <MudTextField @bind-Value="_model.DisplayName" Label="Your Name"
+                      Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        <MudTextField Value="_invitedEmail" Label="Email" InputType="InputType.Email"
+                      Variant="Variant.Outlined" Class="mb-3" ReadOnly="true" />
+        <MudTextField @bind-Value="_model.Password" Label="Create Password" InputType="InputType.Password"
+                      Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_model.ConfirmPassword" Label="Confirm Password" InputType="InputType.Password"
+                      Variant="Variant.Outlined" Class="mb-4" Required="true" />
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                   FullWidth="true" Disabled="_loading">
+            @(_loading ? "Joining…" : "Join Project")
+        </MudButton>
+    </EditForm>
+}
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+
+    bool _checking = true, _tokenValid, _loading;
+    Guid _token;
+    string _invitedEmail = "", _projectName = "";
+    readonly AcceptModel _model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Guid.TryParse(Token, out _token))
+        {
+            var info = await AuthSvc.GetInvitationAsync(_token);
+            if (info != null && info.IsValid)
+            {
+                _tokenValid = true;
+                _invitedEmail = info.Email;
+                _projectName = info.ProjectName ?? "this project";
+            }
+        }
+        _checking = false;
+    }
+
+    async Task HandleAccept()
+    {
+        if (_model.Password != _model.ConfirmPassword)
+        {
+            Snackbar.Add("Passwords do not match.", Severity.Error);
+            return;
+        }
+        _loading = true;
+        var dto = new MPSIP.Application.DTOs.AcceptInvitationDto(_token, _model.Password, _model.DisplayName);
+        var user = await AuthSvc.AcceptInvitationAsync(dto);
+        if (user == null) { Snackbar.Add("Could not complete registration.", Severity.Error); _loading = false; return; }
+        await HttpCtx.HttpContext!.SignInWithMpsipUserAsync(user);
+        Nav.NavigateTo("/dashboard", forceLoad: true);
+    }
+
+    class AcceptModel
+    {
+        public string DisplayName { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

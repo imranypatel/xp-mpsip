@@ -1,0 +1,65 @@
+@page "/projects/create"
+@attribute [Authorize]
+@inject ProjectService ProjectSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>New Project — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">New Manufacturing Project</MudText>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:640px">
+    <EditForm Model="_model" OnValidSubmit="HandleCreate">
+        <DataAnnotationsValidator />
+        <MudTextField @bind-Value="_model.Name" Label="Project Name" Variant="Variant.Outlined"
+                      Class="mb-3" Required="true" />
+        <MudTextField @bind-Value="_model.Description" Label="Description" Variant="Variant.Outlined"
+                      Lines="3" Class="mb-3" />
+        <MudDatePicker @bind-Date="_startDate" Label="Start Date" Variant="Variant.Outlined" Class="mb-3" />
+        <MudDatePicker @bind-Date="_endDate" Label="Expected End Date" Variant="Variant.Outlined" Class="mb-3" />
+        <MudTextField @bind-Value="_model.RiskDeclaration" Label="Risk Declaration" Variant="Variant.Outlined"
+                      Lines="2" Class="mb-3" />
+        <MudTextField @bind-Value="_model.Contingency" Label="Contingency Plans" Variant="Variant.Outlined"
+                      Lines="2" Class="mb-4" />
+        <MudStack Row="true">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="_saving">@(_saving ? "Creating…" : "Create Project")</MudButton>
+            <MudButton Variant="Variant.Text" Href="/projects">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    readonly ProjectModel _model = new();
+    bool _saving;
+    DateTime? _startDate = DateTime.Today;
+    DateTime? _endDate = DateTime.Today.AddMonths(6);
+
+    async Task HandleCreate()
+    {
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var idClaim = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (idClaim == null || !int.TryParse(idClaim.Value, out int userId))
+        { Snackbar.Add("Not authenticated.", Severity.Error); _saving = false; return; }
+
+        var cmd = new CreateProjectCommand(
+            userId, _model.Name, _model.Description,
+            1, 1, // Manufacturing kind ID + template ID — seeded as ID 1
+            DateOnly.FromDateTime(_startDate ?? DateTime.Today),
+            DateOnly.FromDateTime(_endDate ?? DateTime.Today.AddMonths(6)),
+            _model.RiskDeclaration, _model.Contingency);
+
+        int id = await ProjectSvc.CreateAsync(cmd);
+        Snackbar.Add("Project created.", Severity.Success);
+        Nav.NavigateTo($"/projects/{id}");
+    }
+
+    class ProjectModel
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? RiskDeclaration { get; set; }
+        public string? Contingency { get; set; }
+    }
+}

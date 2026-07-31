@@ -1,0 +1,72 @@
+@page "/projects/{ProjectId:int}/distributions"
+@attribute [Authorize]
+@inject DistributionService DistSvc
+
+<PageTitle>Distributions — MPSIP</PageTitle>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h5">Distributions</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               Href="@($"/projects/{ProjectId}/distributions/declare")"
+               StartIcon="@Icons.Material.Filled.Payments">Declare Distribution</MudButton>
+</MudStack>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (!_events.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.Payments" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2 mb-3">No distributions yet</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Href="@($"/projects/{ProjectId}/distributions/declare")">Declare First Distribution</MudButton>
+    </MudPaper>
+}
+else
+{
+    @foreach (var e in _events)
+    {
+        <MudCard Class="mb-3" Elevation="2">
+            <MudCardContent>
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <div>
+                        <MudText Typo="Typo.h6">@e.Name</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@e.EventDate.ToShortDateString() · Total: @e.TotalAmount.ToString("C")</MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudChip T="string" Size="Size.Small" Color="@DistColor(e.StatusCode)">@e.StatusCode</MudChip>
+                </MudStack>
+                @if (e.Shares.Any())
+                {
+                    <MudTable Items="e.Shares" Dense="true" Elevation="0" Class="mt-2">
+                        <HeaderContent>
+                            <MudTh>Partner</MudTh><MudTh>Share %</MudTh><MudTh>Amount</MudTh><MudTh>Acknowledged</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@(context.PartnerName ?? context.PartnerId.ToString())</MudTd>
+                            <MudTd>@context.SharePct%</MudTd>
+                            <MudTd>@context.Amount.ToString("C")</MudTd>
+                            <MudTd>@(context.AcknowledgedAt.HasValue ? "✓" : "Pending")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudCardContent>
+        </MudCard>
+    }
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    List<MPSIP.Domain.Entities.DistributionEvent> _events = [];
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _events = (await DistSvc.ListByProjectAsync(ProjectId)).ToList();
+        _loading = false;
+    }
+
+    static Color DistColor(string s) => s switch
+    {
+        "Distributed" => Color.Success, "Cancelled" => Color.Error, _ => Color.Warning
+    };
+}

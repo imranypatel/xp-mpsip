@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MPSIP.Application/MPSIP.Application.csproj" />
+  <Project Path="MPSIP.Domain/MPSIP.Domain.csproj" />
+  <Project Path="MPSIP.Infrastructure/MPSIP.Infrastructure.csproj" />
+  <Project Path="MPSIP.Web/MPSIP.Web.csproj" />
+</Solution>

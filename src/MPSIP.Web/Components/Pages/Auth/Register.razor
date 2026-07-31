@@ -1,0 +1,57 @@
+@page "/register"
+@layout AuthLayout
+@inject AuthService AuthSvc
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpCtx
+@inject ISnackbar Snackbar
+
+<PageTitle>Register — MPSIP</PageTitle>
+
+<EditForm Model="_model" OnValidSubmit="HandleRegister">
+    <DataAnnotationsValidator />
+    <MudText Typo="Typo.h6" Class="mb-4">Create Account</MudText>
+    <MudTextField @bind-Value="_model.DisplayName" Label="Display Name"
+                  Variant="Variant.Outlined" Class="mb-3" Required="true" />
+    <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
+                  Variant="Variant.Outlined" Class="mb-3" Required="true" />
+    <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password"
+                  Variant="Variant.Outlined" Class="mb-3" Required="true" />
+    <MudTextField @bind-Value="_model.ConfirmPassword" Label="Confirm Password" InputType="InputType.Password"
+                  Variant="Variant.Outlined" Class="mb-4" Required="true" />
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+               FullWidth="true" Disabled="_loading">
+        @(_loading ? "Creating…" : "Create Account")
+    </MudButton>
+    <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-3">
+        Already have an account? <MudLink Href="/login">Sign In</MudLink>
+    </MudText>
+</EditForm>
+
+@code {
+    readonly RegisterModel _model = new();
+    bool _loading;
+
+    async Task HandleRegister()
+    {
+        if (_model.Password != _model.ConfirmPassword)
+        {
+            Snackbar.Add("Passwords do not match.", Severity.Error);
+            return;
+        }
+        _loading = true;
+        var dto = new MPSIP.Application.DTOs.RegisterDto(_model.Email, _model.Password, _model.DisplayName);
+        int userId = await AuthSvc.RegisterOwnerAsync(dto);
+        var user = await AuthSvc.GetUserByIdAsync(userId);
+        if (user == null) { Snackbar.Add("Registration failed.", Severity.Error); _loading = false; return; }
+        await HttpCtx.HttpContext!.SignInWithMpsipUserAsync(user);
+        Nav.NavigateTo("/dashboard", forceLoad: true);
+    }
+
+    class RegisterModel
+    {
+        public string DisplayName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

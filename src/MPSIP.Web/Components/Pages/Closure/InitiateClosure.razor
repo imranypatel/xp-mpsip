@@ -1,0 +1,52 @@
+@page "/projects/{ProjectId:int}/close"
+@attribute [Authorize]
+@inject ClosureService ClosureSvc
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService DialogSvc
+
+<PageTitle>Initiate Closure — MPSIP</PageTitle>
+<MudText Typo="Typo.h5" Class="mb-4">Initiate Project Closure</MudText>
+
+<MudAlert Severity="Severity.Warning" Class="mb-4">
+    Initiating closure will change the project status to <strong>Closing</strong>.
+    Partners will be notified to submit feedback. You can complete the closure after all feedback is received.
+</MudAlert>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:560px">
+    <EditForm Model="_model" OnValidSubmit="HandleClosure">
+        <MudTextField @bind-Value="_model.ClosureNotes" Label="Closure Notes / Summary" Variant="Variant.Outlined"
+                      Lines="4" Class="mb-4" />
+        <MudStack Row="true">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Error" Disabled="_saving">
+                @(_saving ? "Initiating…" : "Initiate Closure")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Href="@($"/projects/{ProjectId}")">Cancel</MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    readonly ClosureModel _model = new();
+    bool _saving;
+
+    async Task HandleClosure()
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        var dialog = await DialogSvc.ShowAsync<MudBlazor.MudMessageBox>("Confirm Closure", options);
+        var result = await dialog.Result;
+        if (result == null || result.Canceled) { _saving = false; return; }
+
+        _saving = true;
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int userId = int.Parse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var cmd = new InitiateClosureCommand(ProjectId, _model.ClosureNotes, null, userId);
+        await ClosureSvc.InitiateAsync(cmd);
+        Snackbar.Add("Closure initiated. Partners will be notified.", Severity.Info);
+        Nav.NavigateTo($"/projects/{ProjectId}");
+    }
+
+    class ClosureModel { public string? ClosureNotes { get; set; } }
+}

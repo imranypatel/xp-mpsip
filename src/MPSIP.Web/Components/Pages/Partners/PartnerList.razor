@@ -1,0 +1,56 @@
+@page "/projects/{ProjectId:int}/partners"
+@attribute [Authorize]
+@inject PartnerService PartnerSvc
+
+<PageTitle>Partners — MPSIP</PageTitle>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h5">Partners</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/projects/{ProjectId}/partners/invite")"
+               StartIcon="@Icons.Material.Filled.PersonAdd">Invite Partner</MudButton>
+</MudStack>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (!_partners.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2 mb-3">No partners yet</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Href="@($"/projects/{ProjectId}/partners/invite")">Invite First Partner</MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudTable Items="_partners" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh><MudTh>Email</MudTh><MudTh>Roles</MudTh>
+            <MudTh>Stake %</MudTh><MudTh>Status</MudTh><MudTh>Agreement</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.DisplayName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@string.Join(", ", context.Roles)</MudTd>
+            <MudTd>@context.StakePct.ToString("0.##")%</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small">@context.StatusCode</MudChip></MudTd>
+            <MudTd>
+                @if (context.HasAcknowledged)
+                { <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" /> }
+                else
+                { <MudLink Href="@($"/projects/{ProjectId}/partners/{context.Id}/agreement")">Pending</MudLink> }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    List<MPSIP.Domain.Entities.Partner> _partners = [];
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _partners = (await PartnerSvc.GetByProjectAsync(ProjectId)).ToList();
+        _loading = false;
+    }
+}

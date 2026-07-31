@@ -1,0 +1,69 @@
+@page "/my-projects"
+@attribute [Authorize]
+@inject DashboardService DashSvc
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>My Projects — MPSIP</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">My Projects</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_dashboard == null || !_dashboard.Projects.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.WorkOff" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2">No project memberships</MudText>
+        <MudText Color="Color.Secondary">You haven't been invited to any projects yet.</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Total Contributed</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Primary">@_dashboard.TotalContributed.ToString("C")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Total Received</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Success">@_dashboard.TotalReceived.ToString("C")</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable Items="_dashboard.Projects" Hover="true" Striped="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Project</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>My Stake</MudTh>
+            <MudTh>My Contributions</MudTh>
+            <MudTh>Roles</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.ProjectName</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small">@context.StatusCode</MudChip></MudTd>
+            <MudTd>@context.StakePct.ToString("0.##")%</MudTd>
+            <MudTd>@context.MyContributions.ToString("C")</MudTd>
+            <MudTd>@string.Join(", ", context.Roles)</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    PartnerDashboardDto? _dashboard;
+    bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        var idClaim = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (idClaim != null && int.TryParse(idClaim.Value, out int userId))
+            _dashboard = await DashSvc.GetPartnerDashboardAsync(userId);
+        _loading = false;
+    }
+}

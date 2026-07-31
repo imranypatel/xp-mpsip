@@ -1,0 +1,15 @@
+@page "/logout"
+@using Microsoft.AspNetCore.Authentication
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpCtx
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpCtx.HttpContext != null)
+        {
+            await HttpCtx.HttpContext.SignOutAsync();
+        }
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

@@ -1,0 +1,81 @@
+@page "/notifications"
+@attribute [Authorize]
+@inject INotificationService NotificationSvc
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Notifications — MPSIP</PageTitle>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h5">Notifications</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="MarkAll">Mark all as read</MudButton>
+</MudStack>
+
+@if (_loading) { <MudProgressLinear Indeterminate="true" /> }
+else if (!_notifications.Any())
+{
+    <MudPaper Class="pa-8 text-center" Elevation="0">
+        <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Class="mt-2">No notifications</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudList T="MPSIP.Domain.Entities.Notification" Dense="false">
+        @foreach (var n in _notifications)
+        {
+            <MudListItem Style="@(n.IsRead ? "" : "background:#EEF2FF")">
+                <MudStack Row="true" AlignItems="AlignItems.Start">
+                    <MudIcon Icon="@TypeIcon(n.TypeCode)" Color="@(n.IsRead ? Color.Default : Color.Primary)" Class="mt-1" />
+                    <div style="flex:1">
+                        <MudText Typo="Typo.body1"><strong>@n.Title</strong></MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@n.Body</MudText>
+                        <MudText Typo="Typo.caption">@n.CreatedAt.ToString("g")</MudText>
+                    </div>
+                    @if (!n.IsRead)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.MarkChatRead" Size="Size.Small"
+                                       OnClick="() => MarkRead(n.Id)" />
+                    }
+                </MudStack>
+            </MudListItem>
+            <MudDivider />
+        }
+    </MudList>
+}
+
+@code {
+    List<MPSIP.Domain.Entities.Notification> _notifications = [];
+    bool _loading = true;
+    int _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState.GetAuthenticationStateAsync();
+        int.TryParse(auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out _userId);
+        _notifications = (await NotificationSvc.GetForUserAsync(_userId)).ToList();
+        _loading = false;
+    }
+
+    async Task MarkRead(int id)
+    {
+        await NotificationSvc.MarkReadAsync(id);
+        var n = _notifications.FirstOrDefault(x => x.Id == id);
+        if (n != null) n.IsRead = true;
+    }
+
+    async Task MarkAll()
+    {
+        await NotificationSvc.MarkAllReadAsync(_userId);
+        foreach (var n in _notifications) n.IsRead = true;
+    }
+
+    static string TypeIcon(string t) => t switch
+    {
+        "InvitationSent" or "InvitationAccepted" => Icons.Material.Filled.PersonAdd,
+        "ContributionLogged" => Icons.Material.Filled.AttachMoney,
+        "DistributionDeclared" => Icons.Material.Filled.Payments,
+        "MilestoneApproaching" => Icons.Material.Filled.Timer,
+        "ProjectClosed" => Icons.Material.Filled.Archive,
+        _ => Icons.Material.Filled.Notifications
+    };
+}
