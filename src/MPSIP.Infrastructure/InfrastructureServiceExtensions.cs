@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MPSIP.Application.Interfaces;
 using MPSIP.Application.Services;
 using MPSIP.Infrastructure.Data;
+using MPSIP.Infrastructure.Database;
 using MPSIP.Infrastructure.Email;
 using MPSIP.Infrastructure.Repositories;
 
@@ -27,6 +28,7 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IClosureRepository, ClosureRepository>();
         services.AddScoped<IEmailSender, MailKitEmailSender>();
+        services.AddScoped<DatabaseMigrator>();
 
         return services;
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor.Services;
 using MPSIP.Application.Services;
 using MPSIP.Infrastructure;
+using MPSIP.Infrastructure.Database;
 using MPSIP.Web.Components;
 using MPSIP.Web.Services;
 
@@ -42,6 +43,15 @@ builder.Services.AddScoped<ClosureService>();
 builder.Services.AddScoped<DashboardService>();
 
 var app = builder.Build();
+
+// Run DB migrations at startup
+using (var scope = app.Services.CreateScope())
+{
+    var migrator = scope.ServiceProvider.GetRequiredService<DatabaseMigrator>();
+    migrator.Run();
+    migrator.RunStoredProcedures();
+    migrator.RunSeeds(devOnly: app.Environment.IsDevelopment());
+}
 
 if (!app.Environment.IsDevelopment())
 {
