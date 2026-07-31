@@ -19,7 +19,7 @@ else
     <MudExpansionPanels MultiExpansion="true">
         @foreach (var phase in _phases)
         {
-            <MudExpansionPanel Text="@($"{phase.Name} — {phase.StatusCode}")" IsInitiallyExpanded="true">
+            <MudExpansionPanel Text="@($"{phase.Name} — {phase.StatusCode}")"  Expanded="true">
                 @if (!phase.Tasks.Any())
                 {
                     <MudText Color="Color.Secondary" Class="pa-2">No tasks in this phase.</MudText>

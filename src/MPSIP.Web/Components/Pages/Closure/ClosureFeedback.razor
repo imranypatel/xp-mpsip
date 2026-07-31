@@ -37,7 +37,6 @@ else
     [Parameter] public int ProjectId { get; set; }
     readonly FeedbackModel _model = new();
     int _closureId;
-    int _partnerId;
     bool _saving, _loading = true, _ackChecked;
 
     protected override async Task OnInitializedAsync()
