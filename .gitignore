@@ -55,3 +55,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Personal local notes / connection string scratch files
+IPReadMe.md
+appsettings*.Local.json
