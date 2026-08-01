@@ -13,6 +13,14 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="*" />
   </ItemGroup>
 
+  <!-- Copy SQL scripts to output so DatabaseMigrator can locate them at runtime -->
+  <ItemGroup>
+    <Content Include="Database\**\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
